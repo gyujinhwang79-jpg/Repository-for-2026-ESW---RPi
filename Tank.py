@@ -4,19 +4,22 @@ import random
 from PIL import Image
 from SeaMonkey import SeaMonkey
 from Food import Food
+from Reaper import Reaper
 
 # ===== 설정 =====
-SPEED = 60          # 시간 배속 (60: 실제 1분 = 게임 1시간)
-HATCH_HOURS = 0.5   # 부화까지 걸리는 게임 시간
-DAY_HOURS = 1       # 게임 속 하루 길이
-MAX_R = 20          # 최대 크기 (반지름)
-FOOD_DROP = 10      # 게임 1시간마다 줄어드는 배부름
-PLAY_DROP = 8       # 게임 1시간마다 줄어드는 즐거움
+SPEED = 60            # 시간 배속 (60: 실제 1분 = 게임 1시간)
+HATCH_HOURS = 0.5     # 부화까지 걸리는 게임 시간
+DAY_HOURS = 1         # 게임 속 하루 길이
+MAX_R = 20            # 최대 크기 (반지름)
+FOOD_DROP = 10        # 게임 1시간마다 줄어드는 배부름
+PLAY_DROP = 8         # 게임 1시간마다 줄어드는 즐거움
+REAPER_INTERVAL = 20  # 사신이 나오는 간격 (실제 시간, 초)
+REAPER_SIZE = 40      # 사신 그림 크기 (픽셀)
 SAVE_FILE = "save.json"
 
 
 class Tank:
-    """어항. 씨몽키들, 먹이, 게임 상태(나이, 배부름, 즐거움)를 관리한다"""
+    """어항. 씨몽키들, 먹이, 사신, 게임 상태(나이, 배부름, 즐거움)를 관리한다"""
 
     def __init__(self, width, height):
         self.width = width
@@ -26,8 +29,10 @@ class Tank:
         self.background = Image.open("background.png").convert("RGB").resize((width, height))
         self.sprite = Image.open("seamonkey.png").convert("RGBA")
         self.sprite_dead = self.sprite.convert("LA").convert("RGBA")   # 흑백 버전
+        self.reaper_sprite = Image.open("reaper.png").convert("RGBA").resize((REAPER_SIZE, REAPER_SIZE))
 
         self.monkeys = [SeaMonkey(width, height) for _ in range(5)]
+        self.reaper = Reaper(width, height, REAPER_INTERVAL)
         self.foods = []
         self.play_timer = 0
         self.load()
@@ -41,6 +46,9 @@ class Tank:
         self.play = 100.0
         self.alive = True
         self.foods = []
+        for monkey in self.monkeys:
+            monkey.alive = True
+        self.reaper.schedule()
 
     def load(self):
         try:
@@ -51,12 +59,16 @@ class Tank:
             self.food = data["food"]
             self.play = data["play"]
             self.alive = data["alive"]
+            flags = data.get("monkeys", [True] * len(self.monkeys))
+            for monkey, flag in zip(self.monkeys, flags):
+                monkey.alive = flag
         except (OSError, ValueError, KeyError):
             self.reset()
 
     def save(self):
         data = {"start": self.start, "last": self.last,
-                "food": self.food, "play": self.play, "alive": self.alive}
+                "food": self.food, "play": self.play, "alive": self.alive,
+                "monkeys": [monkey.alive for monkey in self.monkeys]}
         with open(SAVE_FILE, "w") as f:
             json.dump(data, f)
 
@@ -65,6 +77,13 @@ class Tank:
 
     def hatched(self):
         return self.age() >= HATCH_HOURS
+
+    def size(self):
+        """지금 씨몽키의 크기 (반지름)"""
+        return int(min(MAX_R, 1 + (self.age() - HATCH_HOURS) / DAY_HOURS * 2))
+
+    def alive_count(self):
+        return len([monkey for monkey in self.monkeys if monkey.alive])
 
     # ----- 버튼 동작 -----
     def feed(self):
@@ -85,10 +104,22 @@ class Tank:
         self.last = now
 
         if self.alive and self.hatched():
+            # 배부름과 즐거움 줄이기
             self.food = max(0, self.food - FOOD_DROP * passed)
             self.play = max(0, self.play - PLAY_DROP * passed)
             if self.food == 0 or self.play == 0:
                 self.alive = False
+
+            # 사신 움직이기, 닿은 씨몽키는 죽는다
+            self.reaper.update()
+            r = self.size()
+            for monkey in self.monkeys:
+                if monkey.alive and self.reaper.touches(monkey, r):
+                    monkey.alive = False
+            if self.alive_count() == 0:
+                self.alive = False
+        else:
+            self.reaper.schedule()      # 부화 전이거나 게임이 끝났으면 사신은 쉰다
 
         if self.alive:
             speed = 3 if self.play_timer > 0 else 1
@@ -116,19 +147,22 @@ class Tank:
             food.draw(draw)
 
         if self.hatched():
-            r = int(min(MAX_R, 1 + (self.age() - HATCH_HOURS) / DAY_HOURS * 2))
-            if self.alive:
-                sprite = self.sprite
-            else:
-                sprite = self.sprite_dead
-            sprite = sprite.resize((r * 2, r * 2))           # 나이에 맞는 크기로 줄이기
+            r = self.size()
+            live = self.sprite.resize((r * 2, r * 2))        # 나이에 맞는 크기로 줄이기
+            dead = self.sprite_dead.resize((r * 2, r * 2))
             for monkey in self.monkeys:
-                monkey.draw(image, sprite)
+                if self.alive and monkey.alive:
+                    monkey.draw(image, live)
+                else:
+                    monkey.draw(image, dead)
+
+        self.reaper.draw(image, draw, self.reaper_sprite)    # 경고 불빛 또는 사신
 
         # 상태창
         draw.rectangle((0, 0, self.width, 34), fill=(0, 0, 0))
         day = int(self.age() // DAY_HOURS) + 1
         draw.text((5, 3), "DAY " + str(day), fill=(255, 255, 255))
+        draw.text((5, 19), "LIVE " + str(self.alive_count()), fill=(255, 255, 255))
         draw.text((60, 3), "FOOD", fill=(255, 255, 255))
         draw.rectangle((100, 4, 100 + int(self.food * 1.3), 12), fill=(0, 200, 0))
         draw.text((60, 19), "PLAY", fill=(255, 255, 255))

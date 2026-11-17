@@ -12,8 +12,13 @@ class SeaMonkey:
         self.y = random.uniform(60, height - 30)
         self.vx = 0.0
         self.vy = 0.0
+        self.alive = True                 # 사신에게 닿으면 False가 된다
 
     def move(self, speed, flow_x, flow_y):
+        if not self.alive:
+            # 죽은 씨몽키는 헤엄치지 않고 바닥으로 천천히 가라앉는다
+            self.y = min(self.height - 12, self.y + 0.5)
+            return
         # 속도를 조금씩 무작위로 바꾼다 (-1 ~ 1 범위)
         self.vx = max(-1, min(1, self.vx + random.uniform(-0.3, 0.3)))
         self.vy = max(-1, min(1, self.vy + random.uniform(-0.3, 0.3)))
