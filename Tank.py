@@ -15,6 +15,7 @@ FOOD_DROP = 10        # 게임 1시간마다 줄어드는 배부름
 PLAY_DROP = 8         # 게임 1시간마다 줄어드는 즐거움
 REAPER_INTERVAL = 20  # 사신이 나오는 간격 (실제 시간, 초)
 REAPER_SIZE = 40      # 사신 그림 크기 (픽셀)
+REAPER_MIN_R = 6      # 씨몽키가 이 크기(반지름)가 된 뒤부터 사신이 나온다
 SAVE_FILE = "save.json"
 
 
@@ -110,14 +111,17 @@ class Tank:
             if self.food == 0 or self.play == 0:
                 self.alive = False
 
-            # 사신 움직이기, 닿은 씨몽키는 죽는다
-            self.reaper.update()
+            # 씨몽키가 어느 정도 자란 뒤부터 사신이 나온다
             r = self.size()
-            for monkey in self.monkeys:
-                if monkey.alive and self.reaper.touches(monkey, r):
-                    monkey.alive = False
-            if self.alive_count() == 0:
-                self.alive = False
+            if r >= REAPER_MIN_R:
+                self.reaper.update()
+                for monkey in self.monkeys:
+                    if monkey.alive and self.reaper.touches(monkey, r):
+                        monkey.alive = False      # 닿은 씨몽키는 죽는다
+                if self.alive_count() == 0:
+                    self.alive = False
+            else:
+                self.reaper.schedule()            # 아직 작으면 사신은 쉰다
         else:
             self.reaper.schedule()      # 부화 전이거나 게임이 끝났으면 사신은 쉰다
 
@@ -162,7 +166,6 @@ class Tank:
         draw.rectangle((0, 0, self.width, 34), fill=(0, 0, 0))
         day = int(self.age() // DAY_HOURS) + 1
         draw.text((5, 3), "DAY " + str(day), fill=(255, 255, 255))
-        draw.text((5, 19), "LIVE " + str(self.alive_count()), fill=(255, 255, 255))
         draw.text((60, 3), "FOOD", fill=(255, 255, 255))
         draw.rectangle((100, 4, 100 + int(self.food * 1.3), 12), fill=(0, 200, 0))
         draw.text((60, 19), "PLAY", fill=(255, 255, 255))
