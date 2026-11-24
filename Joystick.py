@@ -4,7 +4,6 @@ from adafruit_rgb_display import st7789
 
 
 class Joystick:
-    """LCD 화면과 조이스틱, 버튼을 한데 묶은 클래스 (조교님 예제와 같은 구조)"""
 
     def __init__(self):
         # 화면
