@@ -10,7 +10,7 @@ from Reaper import Reaper
 SPEED = 60            # 시간 배속 (60: 실제 1분 = 게임 1시간)
 HATCH_HOURS = 0.5     # 부화까지 걸리는 게임 시간
 DAY_HOURS = 1         # 게임 속 하루 길이
-MAX_R = 20            # 최대 크기 (반지름)
+MAX_R = 30            # 최대 크기 (반지름)
 FOOD_DROP = 10        # 게임 1시간마다 줄어드는 배부름
 PLAY_DROP = 8         # 게임 1시간마다 줄어드는 즐거움
 REAPER_INTERVAL = 20  # 사신이 나오는 간격 (실제 시간, 초)
