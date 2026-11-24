@@ -35,20 +35,4 @@
 - Adafruit 1.3인치 TFT Bonnet (240 x 240 화면, 조이스틱, 버튼 2개)
 - Python 3
 
-## 어떻게 실행하나요
-
-라즈베리 파이에서 SPI를 켜고 아래 라이브러리를 설치합니다.
-
-```
-pip install adafruit-blinka adafruit-circuitpython-rgb-display pillow
-```
-
-그다음 이 폴더 안에서 아래 명령을 입력합니다.
-
-```
-python main.py
-```
-
-끌 때는 Ctrl+C를 누릅니다. 처음부터 다시 키우고 싶으면 `save.json` 파일을 지우고 다시 실행합니다.
-
 황규진 (한국항공대학교, 임베디드 SW입문)
